@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bone: #faf7f2;
+  --color-ink: #1c1614;
+  --color-marbling: #f3ece2;
+  --color-beef: #8c2f39;
+  --color-beef-soft: #b8555f;
+  --color-fat: #efe3d3;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-bone);
+  color: var(--color-ink);
+}

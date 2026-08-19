@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import { productsFromHtml } from "@/lib/adapters/jsonld";
+import { parseRobots, pathAllowed } from "@/lib/robots";
+import { parseSuggestions } from "@/lib/agent";
+import type { ShopConfig } from "@/lib/types";
+
+const shop: ShopConfig = { id: "s", name: "Shop", url: "https://shop.nl", adapter: "jsonld" };
+
+describe("JSON-LD adapter", () => {
+  it("leest een schema.org Product met offer", () => {
+    const html = `<html><head><script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"Product","name":"Wagyu entrecote A5 250 gram",
+       "image":"/img/wagyu.jpg","url":"/p/wagyu-entrecote",
+       "offers":{"@type":"Offer","price":"59.95","priceCurrency":"EUR","availability":"https://schema.org/InStock"}}
+    </script></head><body></body></html>`;
+
+    const products = productsFromHtml(html, "https://shop.nl/wagyu", shop);
+    expect(products).toHaveLength(1);
+    expect(products[0]).toMatchObject({
+      title: "Wagyu entrecote A5 250 gram",
+      price: 59.95,
+      available: true,
+      url: "https://shop.nl/p/wagyu-entrecote",
+      image: "https://shop.nl/img/wagyu.jpg",
+    });
+  });
+
+  it("pakt producten uit een @graph en een ItemList", () => {
+    const html = `<script type="application/ld+json">
+      {"@graph":[{"@type":"WebPage"},{"@type":"ItemList","itemListElement":[
+        {"@type":"ListItem","item":{"@type":"Product","name":"Wagyu burger","url":"/p/1",
+          "offers":{"@type":"Offer","price":"12,50"}}},
+        {"@type":"ListItem","item":{"@type":"Product","name":"Wagyu picanha","url":"/p/2",
+          "offers":[{"price":"89.00"},{"price":"45.00"}]}}
+      ]}]}
+    </script>`;
+
+    const products = productsFromHtml(html, "https://shop.nl/wagyu", shop);
+    expect(products.map((p) => [p.title, p.price])).toEqual([
+      ["Wagyu burger", 12.5],
+      ["Wagyu picanha", 45],
+    ]);
+  });
+
+  it("negeert uitverkocht-status en kapotte JSON zonder te crashen", () => {
+    const html = `
+      <script type="application/ld+json">{ dit is geen json }</script>
+      <script type="application/ld+json">
+        {"@type":"Product","name":"Wagyu tomahawk","url":"/p/3",
+         "offers":{"price":"149.00","availability":"http://schema.org/OutOfStock"}}
+      </script>`;
+
+    const products = productsFromHtml(html, "https://shop.nl/wagyu", shop);
+    expect(products).toHaveLength(1);
+    expect(products[0].available).toBe(false);
+  });
+
+  it("slaat producten zonder prijs over", () => {
+    const html = `<script type="application/ld+json">
+      {"@type":"Product","name":"Wagyu cadeaubon","url":"/p/4"}</script>`;
+    expect(productsFromHtml(html, "https://shop.nl/x", shop)).toHaveLength(0);
+  });
+});
+
+describe("robots.txt", () => {
+  const rules = parseRobots(`
+    User-agent: *
+    Disallow: /checkout
+    Disallow: /account
+    Allow: /account/public
+
+    User-agent: BadBot
+    Disallow: /
+  `);
+
+  it("blokkeert wat niet mag en laat de rest door", () => {
+    expect(pathAllowed(rules, "/wagyu")).toBe(true);
+    expect(pathAllowed(rules, "/checkout/cart")).toBe(false);
+    expect(pathAllowed(rules, "/account/orders")).toBe(false);
+  });
+
+  it("laat een specifiekere Allow winnen", () => {
+    expect(pathAllowed(rules, "/account/public/list")).toBe(true);
+  });
+
+  it("negeert regels voor andere user-agents", () => {
+    expect(pathAllowed(rules, "/")).toBe(true);
+  });
+});
+
+describe("parseSuggestions", () => {
+  it("haalt JSON uit een codeblok", () => {
+    const text = 'Gevonden:\n```json\n[{"name":"Shop","url":"https://shop.nl","reden":"test"}]\n```';
+    expect(parseSuggestions(text)).toEqual([{ name: "Shop", url: "https://shop.nl", reden: "test" }]);
+  });
+
+  it("geeft een lege lijst bij onbruikbare output", () => {
+    expect(parseSuggestions("geen idee")).toEqual([]);
+  });
+});
