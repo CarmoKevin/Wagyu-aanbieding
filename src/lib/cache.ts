@@ -1,3 +1,4 @@
+import { envNumber } from "@/lib/env";
 import { scanAll } from "@/lib/deals";
 import type { ScanResult } from "@/lib/types";
 
@@ -6,14 +7,14 @@ import type { ScanResult } from "@/lib/types";
  * per dag; bezoekers daartussen krijgen het laatste resultaat en betalen dus
  * geen wachttijd (en de shops geen extra verkeer).
  */
-const TTL_MS = Number(process.env.DEALS_TTL_MINUTES ?? 180) * 60_000;
+const ttlMs = () => envNumber("DEALS_TTL_MINUTES", 180, { min: 5, max: 1440 }) * 60_000;
 
 let cached: ScanResult | null = null;
 let cachedAt = 0;
 let inFlight: Promise<ScanResult> | null = null;
 
 export async function getDeals(options: { force?: boolean } = {}): Promise<ScanResult> {
-  const fresh = cached && Date.now() - cachedAt < TTL_MS;
+  const fresh = cached && Date.now() - cachedAt < ttlMs();
   if (fresh && !options.force) return cached!;
 
   // Meerdere gelijktijdige bezoekers delen dezelfde scan.

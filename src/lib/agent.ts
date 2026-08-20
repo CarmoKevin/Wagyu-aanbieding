@@ -1,14 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { envIsSet, envString } from "@/lib/env";
 import type { Deal } from "@/lib/types";
 
 /**
  * De AI-laag is optioneel: zonder ANTHROPIC_API_KEY draait de scanner gewoon
  * door, alleen zonder samenvatting en zonder shop-ontdekking.
  */
-const MODEL = process.env.WAGYU_AGENT_MODEL ?? "claude-opus-5";
+const model = () => envString("WAGYU_AGENT_MODEL", "claude-opus-5");
 
 function client(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!envIsSet("ANTHROPIC_API_KEY")) return null;
   return new Anthropic();
 }
 
@@ -37,7 +38,7 @@ export async function summarize(deals: Deal[]): Promise<string | undefined> {
 
   try {
     const response = await anthropic.messages.create({
-      model: MODEL,
+      model: model(),
       max_tokens: 1200,
       output_config: { effort: "low" },
       system:
@@ -71,7 +72,7 @@ export async function discoverShops(knownDomains: string[]): Promise<ShopSuggest
 
   try {
     const response = await anthropic.messages.create({
-      model: MODEL,
+      model: model(),
       max_tokens: 4000,
       tools: [
         {

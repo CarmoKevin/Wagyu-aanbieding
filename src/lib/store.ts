@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { envIsSet, envRaw } from "@/lib/env";
 
 /**
  * Prijshistorie. Nodig voor shops die geen van-prijs publiceren: dan bepalen we
@@ -21,13 +22,13 @@ const MAX_AGE_DAYS = 60;
 const memory: { data: History } = { data: {} };
 
 function kvConfig(): { url: string; token: string } | null {
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = envRaw("KV_REST_API_URL") ?? envRaw("UPSTASH_REDIS_REST_URL");
+  const token = envRaw("KV_REST_API_TOKEN") ?? envRaw("UPSTASH_REDIS_REST_TOKEN");
   return url && token ? { url: url.replace(/\/$/, ""), token } : null;
 }
 
 const localFile = path.join(process.cwd(), "data", "history.json");
-const canUseFile = !process.env.VERCEL;
+const canUseFile = !envIsSet("VERCEL");
 
 export async function loadHistory(): Promise<History> {
   const kv = kvConfig();

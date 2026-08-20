@@ -98,3 +98,32 @@ describe("parseSuggestions", () => {
     expect(parseSuggestions("geen idee")).toEqual([]);
   });
 });
+
+describe("env-parsing", () => {
+  it("negeert lege en onzinnige waarden", async () => {
+    const { envNumber, envString, envIsSet } = await import("@/lib/env");
+
+    // Precies het geval dat de scan sloopte: variabele bestaat, maar is leeg.
+    process.env.TEST_TIMEOUT = "";
+    expect(envNumber("TEST_TIMEOUT", 12_000, { min: 1_000 })).toBe(12_000);
+    expect(envIsSet("TEST_TIMEOUT")).toBe(false);
+    expect(envString("TEST_TIMEOUT", "standaard")).toBe("standaard");
+
+    process.env.TEST_TIMEOUT = "   ";
+    expect(envNumber("TEST_TIMEOUT", 12_000, { min: 1_000 })).toBe(12_000);
+
+    process.env.TEST_TIMEOUT = "abc";
+    expect(envNumber("TEST_TIMEOUT", 12_000, { min: 1_000 })).toBe(12_000);
+
+    // Een te lage waarde wordt opgetrokken, niet klakkeloos overgenomen.
+    process.env.TEST_TIMEOUT = "0";
+    expect(envNumber("TEST_TIMEOUT", 12_000, { min: 1_000 })).toBe(1_000);
+
+    process.env.TEST_TIMEOUT = "5000";
+    expect(envNumber("TEST_TIMEOUT", 12_000, { min: 1_000 })).toBe(5_000);
+    expect(envIsSet("TEST_TIMEOUT")).toBe(true);
+
+    delete process.env.TEST_TIMEOUT;
+    expect(envNumber("TEST_TIMEOUT", 12_000, { min: 1_000 })).toBe(12_000);
+  });
+});

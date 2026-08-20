@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { envRaw } from "@/lib/env";
 import { refreshDeals } from "@/lib/cache";
 
 // Vercel Cron roept dit dagelijks aan (zie vercel.json).
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   // Vercel stuurt CRON_SECRET mee als Authorization-header; buiten Vercel is
   // het endpoint open zolang je geen secret zet.
-  const secret = process.env.CRON_SECRET;
+  const secret = envRaw("CRON_SECRET");
   if (secret) {
     const auth = request.headers.get("authorization");
     if (auth !== `Bearer ${secret}`) {

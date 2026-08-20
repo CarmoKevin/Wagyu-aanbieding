@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { discoverShops } from "@/lib/agent";
+import { envIsSet } from "@/lib/env";
 import { shops } from "@/lib/deals";
 
 export const maxDuration = 120;
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
  * Bewust read-only: de suggesties zet je zelf in config/shops.json.
  */
 export async function GET() {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!envIsSet("ANTHROPIC_API_KEY")) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY ontbreekt" }, { status: 503 });
   }
 

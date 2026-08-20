@@ -1,3 +1,4 @@
+import { envRaw } from "@/lib/env";
 import { fetchText } from "@/lib/http";
 
 /**
@@ -61,7 +62,7 @@ export function pathAllowed(rules: Rules, pathname: string): boolean {
 }
 
 export async function isAllowed(url: string): Promise<boolean> {
-  if (process.env.IGNORE_ROBOTS === "1") return true;
+  if (envRaw("IGNORE_ROBOTS") === "1") return true;
   try {
     const parsed = new URL(url);
     const rules = await loadRules(parsed.origin);

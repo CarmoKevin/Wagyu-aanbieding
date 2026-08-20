@@ -55,6 +55,14 @@ npm run dev        # lokaal op http://localhost:3000
 
    Zonder KV werkt alles gewoon, alleen is de prijshistorie weg na een cold start.
 
+   > Variabelen die je niet gebruikt, laat je wég in plaats van leeg. Een lege
+   > waarde wordt als "niet gezet" behandeld en valt terug op de standaard, dus
+   > leeg invullen kan geen kwaad — maar weglaten is duidelijker.
+
+4. Check daarna `/api/sources`. Die laat naast de status per shop ook de
+   instellingen zien waarmee gescand is (`timeoutMs`, `ttlMinutes`, `userAgent`,
+   `storage`), zodat een verkeerd gezette variabele meteen opvalt.
+
 ## Endpoints
 
 | Route | Wat het doet |
