@@ -20,7 +20,8 @@ config/shops.json ─▶ adapters ─▶ normaliseren ─▶ scoren ─▶ site 
    - `jsonld` — de schema.org-data die vrijwel elke webshop voor Google in de pagina zet.
 
    `robots.txt` wordt gerespecteerd, requests hebben een timeout en een eigen
-   user-agent, en er wordt hooguit een paar keer per dag gescand.
+   user-agent, en er wordt hooguit een paar keer per dag gescand. Elke shop
+   heeft een eigen tijdsbudget, zodat één trage shop de andere niet ophoudt.
 
 2. **Normaliseren.** Uit titel en variant komt het gewicht (`250 gram`,
    `1,2 kg`, `4 x 150 g`, `300-350 gram`, `per 100 gram`) en daarmee de
@@ -52,6 +53,7 @@ npm run dev        # lokaal op http://localhost:3000
    | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | prijshistorie bewaren (Vercel KV of Upstash Redis); nodig voor korting bij shops zonder van-prijs |
    | `CRON_SECRET` | beschermt `/api/cron/refresh`; Vercel stuurt hem automatisch mee |
    | `DEALS_TTL_MINUTES` | hoe lang een scan hergebruikt wordt (standaard 180) |
+   | `SHOP_BUDGET_MS` | tijdsbudget per shop (standaard 25000) |
 
    Zonder KV werkt alles gewoon, alleen is de prijshistorie weg na een cold start.
 

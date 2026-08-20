@@ -37,6 +37,7 @@
     "url": "https://www.misterwagyu.nl",
     "adapter": "auto",
     "listingPaths": [
+      "/winkel/",
       "/wagyu-vlees-kopen/",
       "/?s=wagyu&post_type=product"
     ]
@@ -59,6 +60,46 @@
     "listingPaths": [
       "/rundvlees/wagyu/",
       "/?s=wagyu&post_type=product"
+    ]
+  },
+  {
+    "id": "themeatlovers",
+    "name": "The Meatlovers",
+    "url": "https://themeatlovers.nl",
+    "adapter": "auto",
+    "listingPaths": [
+      "/collections/wagyu"
+    ]
+  },
+  {
+    "id": "beefensteak",
+    "name": "Beef & Steak",
+    "url": "https://beefensteak.nl",
+    "adapter": "auto",
+    "listingPaths": [
+      "/en/beef/wagyu-beef-marbling-4-7/",
+      "/rundvlees/wagyu/",
+      "/wagyu/"
+    ]
+  },
+  {
+    "id": "internetslagerij",
+    "name": "Internetslagerij",
+    "url": "https://www.internetslagerij.nl",
+    "adapter": "auto",
+    "listingPaths": [
+      "/wagyu-beef/"
+    ]
+  },
+  {
+    "id": "slagerijdeleeuw",
+    "name": "Slagerij De Leeuw",
+    "url": "https://www.slagerijdeleeuw.nl",
+    "adapter": "auto",
+    "listingPaths": [
+      "/wagyu.html",
+      "/rundvlees/wagyu.html",
+      "/catalogsearch/result/?q=wagyu"
     ]
   }
 ]

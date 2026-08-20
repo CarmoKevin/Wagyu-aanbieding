@@ -1,3 +1,4 @@
+import { isExpired } from "@/lib/adapters";
 import { fetchJson } from "@/lib/http";
 import { isAllowed } from "@/lib/robots";
 import { stripHtml } from "@/lib/adapters/shopify";
@@ -24,10 +25,15 @@ type WooProduct = {
   };
 };
 
-export async function fetchWooCommerce(shop: ShopConfig, maxPages = 3): Promise<RawProduct[]> {
+export async function fetchWooCommerce(
+  shop: ShopConfig,
+  deadline = Infinity,
+  maxPages = 3,
+): Promise<RawProduct[]> {
   const products: RawProduct[] = [];
 
   for (let page = 1; page <= maxPages; page++) {
+    if (isExpired(deadline)) break;
     const url = `${shop.url}/wp-json/wc/store/v1/products?search=wagyu&per_page=100&page=${page}`;
     if (!(await isAllowed(url))) break;
 

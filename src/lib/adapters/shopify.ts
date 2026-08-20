@@ -1,3 +1,4 @@
+import { isExpired } from "@/lib/adapters";
 import { fetchJson } from "@/lib/http";
 import { isAllowed } from "@/lib/robots";
 import type { RawProduct, ShopConfig } from "@/lib/types";
@@ -28,10 +29,15 @@ type ShopifyResponse = {
 
 const PAGE_SIZE = 250;
 
-export async function fetchShopify(shop: ShopConfig, maxPages = 4): Promise<RawProduct[]> {
+export async function fetchShopify(
+  shop: ShopConfig,
+  deadline = Infinity,
+  maxPages = 4,
+): Promise<RawProduct[]> {
   const products: RawProduct[] = [];
 
   for (let page = 1; page <= maxPages; page++) {
+    if (isExpired(deadline)) break;
     const url = `${shop.url}/products.json?limit=${PAGE_SIZE}&page=${page}`;
     if (!(await isAllowed(url))) break;
 

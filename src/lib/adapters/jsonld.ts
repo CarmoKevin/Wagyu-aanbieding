@@ -1,3 +1,4 @@
+import { isExpired } from "@/lib/adapters";
 import { absoluteUrl, fetchText, mapLimit } from "@/lib/http";
 import { isAllowed } from "@/lib/robots";
 import { isWagyu } from "@/lib/parse/classify";
@@ -11,12 +12,17 @@ import type { RawProduct, ShopConfig } from "@/lib/types";
  */
 const SCRIPT_RE = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
 
-export async function fetchJsonLd(shop: ShopConfig, maxProductPages = 24): Promise<RawProduct[]> {
+export async function fetchJsonLd(
+  shop: ShopConfig,
+  deadline = Infinity,
+  maxProductPages = 24,
+): Promise<RawProduct[]> {
   const listings = (shop.listingPaths ?? ["/"]).map((path) => absoluteUrl(shop.url + "/", path));
   const found = new Map<string, RawProduct>();
   const candidateLinks = new Set<string>();
 
   for (const listing of listings) {
+    if (isExpired(deadline)) break;
     if (!(await isAllowed(listing))) continue;
     let html: string;
     try {
@@ -40,6 +46,7 @@ export async function fetchJsonLd(shop: ShopConfig, maxProductPages = 24): Promi
     .slice(0, maxProductPages);
 
   await mapLimit(toVisit, 4, async (link) => {
+    if (isExpired(deadline)) return;
     if (!(await isAllowed(link))) return;
     try {
       const html = await fetchText(link);

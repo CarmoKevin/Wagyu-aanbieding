@@ -1,5 +1,5 @@
 import shopsJson from "@/../config/shops.json";
-import { fetchShop } from "@/lib/adapters";
+import { fetchShop, shopBudgetMs } from "@/lib/adapters";
 import { keepWagyu, normalize, round } from "@/lib/normalize";
 import { median, scoreAll } from "@/lib/score";
 import { appendPrices, loadHistory, saveHistory, type History } from "@/lib/store";
@@ -36,7 +36,7 @@ async function scanShop(
 ): Promise<{ deals: Deal[]; health: SourceHealth }> {
   const started = Date.now();
   try {
-    const { products, via, errors } = await fetchShop(shop);
+    const { products, via, errors } = await fetchShop(shop, Date.now() + shopBudgetMs());
     const wagyu = keepWagyu(products);
     const deals = wagyu.map((raw) => withHistoryDiscount(normalize(raw, seenAt), history));
 
