@@ -61,3 +61,40 @@ describe("segmentKey", () => {
     expect(segmentKey("onbekend", undefined, undefined)).toBe("onbekend|geen|overig");
   });
 });
+
+describe("echte producttitels van BBQuality", () => {
+  // Titels zoals BBQuality ze voert; deze bepalen of grade, herkomst en
+  // deelstuk kloppen zodra de shop live wordt uitgelezen.
+  const titels = [
+    "Wagyu ribeye A5 Japans (Full Blood)",
+    "Wagyu entrecote A5 Japans (Full Blood)",
+    "Wagyu tournedos A5 Japans (Full Blood)",
+    "Wagyu picanha blokjes A5 Japans (Full Blood)",
+    "Wagyu inside skirt steak A5 Japans (Full Blood)",
+    "Wagyu burger",
+    "Wagyu verrassingspakket",
+  ];
+
+  it("herkent ze allemaal als wagyu", () => {
+    expect(titels.every((t) => isWagyu(t))).toBe(true);
+  });
+
+  it("leest grade en herkomst uit de Japanse A5-titels", () => {
+    expect(parseGrade("Wagyu ribeye A5 Japans (Full Blood)")).toBe("A5");
+    expect(parseOrigin("Wagyu ribeye A5 Japans (Full Blood)")).toBe("japans");
+  });
+
+  it("leest de Australische marbling score", () => {
+    expect(parseGrade("Australische wagyu met marbling score 8 tot 9")).toBe("BMS 8+");
+    expect(parseOrigin("Australische wagyu met marbling score 8 tot 9")).toBe("australisch");
+  });
+
+  it("kiest het juiste deelstuk", () => {
+    expect(parseCut("Wagyu ribeye A5 Japans (Full Blood)")).toBe("Ribeye / entrecote");
+    expect(parseCut("Wagyu tournedos A5 Japans (Full Blood)")).toBe("Ossenhaas / tournedos");
+    expect(parseCut("Wagyu picanha blokjes A5 Japans (Full Blood)")).toBe("Picanha");
+    // "skirt steak" is bavette, niet zomaar een steak.
+    expect(parseCut("Wagyu inside skirt steak A5 Japans (Full Blood)")).toBe("Bavette / flank");
+    expect(parseCut("Wagyu verrassingspakket")).toBe("Pakket / box");
+  });
+});

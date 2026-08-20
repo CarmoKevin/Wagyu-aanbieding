@@ -1,37 +1,64 @@
 [
   {
+    "id": "bbquality",
+    "name": "BBQuality",
+    "url": "https://www.bbquality.nl",
+    "adapter": "auto",
+    "listingPaths": [
+      "/wagyu-vlees/",
+      "/wagyu-vlees/page/2/",
+      "/?s=wagyu&post_type=product"
+    ]
+  },
+  {
     "id": "butchery",
     "name": "The Butchery",
     "url": "https://butchery.nl",
     "adapter": "auto",
-    "listingPaths": ["/vleesrassen/rund/wagyu.html", "/catalogsearch/result/?q=wagyu"]
+    "listingPaths": [
+      "/vleesrassen/rund/wagyu.html",
+      "/catalogsearch/result/?q=wagyu"
+    ]
   },
   {
     "id": "inamood",
     "name": "Inamood",
     "url": "https://inamood.nl",
     "adapter": "auto",
-    "listingPaths": ["/wagyu-vlees/", "/wagyu-vlees/japanse-wagyu/", "/?s=wagyu&post_type=product"]
+    "listingPaths": [
+      "/wagyu-vlees/",
+      "/wagyu-vlees/japanse-wagyu/",
+      "/?s=wagyu&post_type=product"
+    ]
   },
   {
     "id": "misterwagyu",
     "name": "Mister Wagyu",
     "url": "https://www.misterwagyu.nl",
     "adapter": "auto",
-    "listingPaths": ["/wagyu-vlees-kopen/", "/?s=wagyu&post_type=product"]
+    "listingPaths": [
+      "/wagyu-vlees-kopen/",
+      "/?s=wagyu&post_type=product"
+    ]
   },
   {
     "id": "themeatboys",
     "name": "The Meat Boys",
     "url": "https://www.themeatboys.nl",
     "adapter": "auto",
-    "listingPaths": ["/wagyu/", "/?s=wagyu&post_type=product"]
+    "listingPaths": [
+      "/wagyu/",
+      "/?s=wagyu&post_type=product"
+    ]
   },
   {
     "id": "valkslagerij",
     "name": "Valk Slagerij",
     "url": "https://www.valkslagerij.nl",
     "adapter": "auto",
-    "listingPaths": ["/rundvlees/wagyu/", "/?s=wagyu&post_type=product"]
+    "listingPaths": [
+      "/rundvlees/wagyu/",
+      "/?s=wagyu&post_type=product"
+    ]
   }
 ]
