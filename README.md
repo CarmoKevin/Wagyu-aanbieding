@@ -50,12 +50,14 @@ npm run dev        # lokaal op http://localhost:3000
    | Variabele | Waarvoor |
    |---|---|
    | `ANTHROPIC_API_KEY` | zet de AI-agent aan: dagelijkse duiding bovenaan de pagina en `/api/agent` om nieuwe shops te vinden |
-   | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | prijshistorie bewaren (Vercel KV of Upstash Redis); nodig voor korting bij shops zonder van-prijs |
+   | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | prijshistorie bewaren (Vercel KV of Upstash Redis), en de laatste scan bewaren zodat een koude instantie niet opnieuw hoeft te scannen |
    | `CRON_SECRET` | beschermt `/api/cron/refresh`; Vercel stuurt hem automatisch mee |
    | `DEALS_TTL_MINUTES` | hoe lang een scan hergebruikt wordt (standaard 180) |
    | `SHOP_BUDGET_MS` | tijdsbudget per shop (standaard 25000) |
 
-   Zonder KV werkt alles gewoon, alleen is de prijshistorie weg na een cold start.
+   Zonder KV werkt alles gewoon, maar dan begint elke nieuwe serverless-instantie
+   koud: de eerste bezoeker wacht op de volledige scan, en de prijshistorie is
+   weg. Met KV leest een koude instantie het resultaat van de cron.
 
    > Variabelen die je niet gebruikt, laat je wég in plaats van leeg. Een lege
    > waarde wordt als "niet gezet" behandeld en valt terug op de standaard, dus

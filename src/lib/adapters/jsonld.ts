@@ -9,70 +9,90 @@ import type { RawProduct, ShopConfig } from "@/lib/types";
 /**
  * Generieke adapter voor shops zonder publieke product-API (Magento,
  * Lightspeed, CCV, maatwerk). Vrijwel elke webshop zet schema.org JSON-LD in de
- * pagina voor Google; dat lezen we uit. Levert een listing geen prijzen, dan
- * volgen we een beperkt aantal productpagina's.
+ * pagina voor Google; dat lezen we uit, met OpenGraph-tags als terugval.
+ *
+ * Werkwijze: sitemap eerst, categoriepagina's als terugval. Andersom kost te
+ * veel tijd — categoriepagina's zijn groot, traag en vaak leeg zonder
+ * JavaScript, en dan is het budget op voordat we bij de producten zijn.
  */
 const SCRIPT_RE = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+/** Stop met nieuwe verzoeken starten als er zo weinig tijd over is. */
+const RESERVE_MS = 2_500;
 
 export async function fetchJsonLd(
   shop: ShopConfig,
   deadline = Infinity,
   maxProductPages = 24,
 ): Promise<RawProduct[]> {
-  const listings = (shop.listingPaths ?? ["/"]).map((path) => absoluteUrl(shop.url + "/", path));
   const found = new Map<string, RawProduct>();
-  const candidateLinks = new Set<string>();
 
-  for (const listing of listings) {
-    if (isExpired(deadline)) break;
-    if (!(await isAllowed(listing))) continue;
-    let html: string;
-    try {
-      html = await fetchText(listing);
-    } catch {
-      continue;
-    }
-
-    for (const product of productsFromHtml(html, listing, shop)) {
-      found.set(product.url, product);
-    }
-    for (const link of productLinks(html, listing)) {
-      candidateLinks.add(link);
-    }
+  // 1. Sitemap eerst. Dat zijn twee verzoeken die meteen precieze product-URLs
+  //    opleveren, terwijl categoriepagina's groot en traag zijn en hun
+  //    producten vaak met JavaScript inladen — wat wij niet uitvoeren.
+  let links: string[] = [];
+  try {
+    links = await sitemapWagyuLinks(new URL(shop.url).origin, deadline);
+  } catch {
+    // Geen sitemap: dan doen we het met de categoriepagina's hieronder.
   }
 
-  // Leveren de categoriepagina's weinig op, dan is de kans groot dat de shop
-  // zijn producten met JavaScript inlaadt. De sitemap kent ze wel.
-  if (found.size < maxProductPages && !isExpired(deadline)) {
-    try {
-      for (const link of await sitemapWagyuLinks(new URL(shop.url).origin, deadline)) {
-        candidateLinks.add(link);
+  await crawl(links, shop, deadline, maxProductPages, found);
+
+  // 2. Niets gevonden? Dan de opgegeven categoriepagina's proberen: die dragen
+  //    soms zelf een ItemList met prijzen, en anders leveren ze links.
+  if (found.size === 0) {
+    const listings = (shop.listingPaths ?? ["/"]).map((path) => absoluteUrl(shop.url + "/", path));
+    const uitListings = new Set<string>();
+
+    for (const listing of listings) {
+      if (isExpired(deadline)) break;
+      if (!(await isAllowed(listing))) continue;
+
+      let html: string;
+      try {
+        html = await fetchText(listing);
+      } catch {
+        continue;
       }
-    } catch {
-      // Geen sitemap: dan blijven we bij de links van de categoriepagina.
+
+      for (const product of productsFromHtml(html, listing, shop)) {
+        found.set(product.url, product);
+      }
+      for (const link of productLinks(html, listing)) {
+        uitListings.add(link);
+      }
     }
+
+    await crawl([...uitListings], shop, deadline, maxProductPages, found);
   }
 
-  // Productpagina's zelf ophalen. Eerst de links die er als productpagina
-  // uitzien, want elke fetch kost tijd.
-  const toVisit = rankProductLinks(
-    [...candidateLinks].filter((link) => !found.has(link) && isWagyu(safeDecode(link))),
-  ).slice(0, maxProductPages);
+  return [...found.values()];
+}
 
-  await mapLimit(toVisit, 4, async (link) => {
-    if (isExpired(deadline)) return;
-    if (!(await isAllowed(link))) return;
+/** Haalt productpagina's op zolang er tijd is, de kansrijkste eerst. */
+async function crawl(
+  links: string[],
+  shop: ShopConfig,
+  deadline: number,
+  max: number,
+  found: Map<string, RawProduct>,
+): Promise<void> {
+  const teBezoeken = rankProductLinks(
+    links.filter((link) => !found.has(link) && isWagyu(safeDecode(link))),
+  ).slice(0, max);
+
+  await mapLimit(teBezoeken, 8, async (link) => {
+    if (Date.now() > deadline - RESERVE_MS) return;
     try {
-      const html = await fetchText(link);
-      for (const product of productsFromHtml(html, link, shop)) {
+      if (!(await isAllowed(link))) return;
+      for (const product of productsFromHtml(await fetchText(link), link, shop)) {
         found.set(product.url, product);
       }
     } catch {
       // Eén kapotte productpagina mag de hele shop niet laten falen.
     }
   });
-
-  return [...found.values()];
 }
 
 export function productsFromHtml(html: string, pageUrl: string, shop: ShopConfig): RawProduct[] {

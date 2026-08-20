@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { envIsSet, envRaw } from "@/lib/env";
+import type { ScanResult } from "@/lib/types";
 
 /**
  * Prijshistorie. Nodig voor shops die geen van-prijs publiceren: dan bepalen we
@@ -16,6 +17,7 @@ export type PricePoint = { d: string; p: number };
 export type History = Record<string, PricePoint[]>;
 
 const KEY = "wagyu:history";
+const SCAN_KEY = "wagyu:last-scan";
 const MAX_POINTS = 16;
 const MAX_AGE_DAYS = 60;
 
@@ -107,4 +109,43 @@ export function appendPrices(
 export function storageBackend(): "kv" | "file" | "memory" {
   if (kvConfig()) return "kv";
   return canUseFile ? "file" : "memory";
+}
+
+/**
+ * De laatste volledige scan bewaren. Zonder dit begint elke nieuwe
+ * serverless-instantie koud en betaalt de eerste bezoeker de hele scan, terwijl
+ * de dagelijkse cron zijn werk in het niets ziet verdwijnen.
+ */
+export async function saveScan(result: ScanResult): Promise<void> {
+  const kv = kvConfig();
+  if (!kv) return;
+  try {
+    await fetch(`${kv.url}/set/${SCAN_KEY}`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${kv.token}`, "content-type": "application/json" },
+      body: JSON.stringify(result),
+    });
+  } catch {
+    // Bewaren is een optimalisatie, geen voorwaarde.
+  }
+}
+
+/** Geeft de bewaarde scan terug als die niet ouder is dan maxAgeMs. */
+export async function loadScan(maxAgeMs: number): Promise<ScanResult | undefined> {
+  const kv = kvConfig();
+  if (!kv) return undefined;
+  try {
+    const res = await fetch(`${kv.url}/get/${SCAN_KEY}`, {
+      headers: { authorization: `Bearer ${kv.token}` },
+      cache: "no-store",
+    });
+    const body = (await res.json()) as { result?: string | null };
+    if (!body.result) return undefined;
+
+    const scan = JSON.parse(body.result) as ScanResult;
+    const leeftijd = Date.now() - new Date(scan.generatedAt).getTime();
+    return leeftijd >= 0 && leeftijd < maxAgeMs ? scan : undefined;
+  } catch {
+    return undefined;
+  }
 }

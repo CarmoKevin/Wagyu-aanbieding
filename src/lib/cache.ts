@@ -1,5 +1,6 @@
 import { envNumber } from "@/lib/env";
 import { scanAll } from "@/lib/deals";
+import { loadScan, saveScan } from "@/lib/store";
 import type { ScanResult } from "@/lib/types";
 
 /**
@@ -16,6 +17,17 @@ let inFlight: Promise<ScanResult> | null = null;
 export async function getDeals(options: { force?: boolean } = {}): Promise<ScanResult> {
   const fresh = cached && Date.now() - cachedAt < ttlMs();
   if (fresh && !options.force) return cached!;
+
+  // Koude instantie: eerst kijken of de cron al een verse scan heeft
+  // achtergelaten. Scheelt de bezoeker tientallen seconden.
+  if (!cached && !options.force) {
+    const bewaard = await loadScan(ttlMs());
+    if (bewaard) {
+      cached = bewaard;
+      cachedAt = Date.now();
+      return bewaard;
+    }
+  }
 
   // Meerdere gelijktijdige bezoekers delen dezelfde scan.
   inFlight ??= refreshDeals({ withSummary: !cached }).finally(() => {
@@ -36,6 +48,7 @@ export async function refreshDeals(options: { withSummary?: boolean } = {}): Pro
   if (result.deals.length > 0 || !cached) {
     cached = { ...result, summary: result.summary ?? cached?.summary };
     cachedAt = Date.now();
+    if (result.deals.length > 0) await saveScan(cached);
   }
   return cached ?? result;
 }
