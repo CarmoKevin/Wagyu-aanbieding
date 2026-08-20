@@ -39,11 +39,11 @@ export async function fetchJsonLd(
     }
   }
 
-  // Listings zonder prijs in de JSON-LD: productpagina's zelf ophalen.
-  const toVisit = [...candidateLinks]
-    .filter((link) => !found.has(link))
-    .filter((link) => isWagyu(decodeURIComponent(link)))
-    .slice(0, maxProductPages);
+  // Listings zonder prijs in de JSON-LD: productpagina's zelf ophalen. Eerst de
+  // links die er als productpagina uitzien, want elke fetch kost tijd.
+  const toVisit = rankProductLinks(
+    [...candidateLinks].filter((link) => !found.has(link) && isWagyu(safeDecode(link))),
+  ).slice(0, maxProductPages);
 
   await mapLimit(toVisit, 4, async (link) => {
     if (isExpired(deadline)) return;
@@ -178,6 +178,50 @@ function asNumber(value: unknown): number | undefined {
     if (Number.isFinite(n) && n > 0) return n;
   }
   return undefined;
+}
+
+/** Ziet eruit als een productpagina (Woo, Shopify, Magento, maatwerk). */
+const LIJKT_PRODUCT = [/\/product(s)?\//i, /\/p\//i, /\.html?$/i];
+
+/** Zeker geen productpagina: kost alleen tijd. */
+const ZEKER_GEEN_PRODUCT = [
+  /\/(faq|blog|nieuws|recept(en)?|over-ons|contact|klantenservice|account|cart|winkelwagen|checkout|login|zoeken|search)\b/i,
+  /\/(page|tag|categorie|category|collections)\//i,
+];
+
+/**
+ * Sorteert kandidaat-links op hoe waarschijnlijk het een productpagina is, en
+ * gooit pagina's weg die dat zeker niet zijn. Zonder deze stap gaat het budget
+ * op aan FAQ- en categoriepagina's.
+ */
+export function rankProductLinks(links: string[]): string[] {
+  return links
+    .map((link) => ({ link, score: scoreLink(link) }))
+    .filter((entry) => entry.score >= 0)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.link);
+}
+
+function scoreLink(link: string): number {
+  const path = pathOf(link);
+  if (ZEKER_GEEN_PRODUCT.some((re) => re.test(path))) return -1;
+  return LIJKT_PRODUCT.some((re) => re.test(path)) ? 1 : 0;
+}
+
+function pathOf(link: string): string {
+  try {
+    return new URL(link).pathname;
+  } catch {
+    return link;
+  }
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 /** Productlinks uit een listing; ruw maar effectief over shopsystemen heen. */

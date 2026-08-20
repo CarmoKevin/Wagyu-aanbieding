@@ -99,10 +99,26 @@ die pagina's uit:
 
 Met `"enabled": false` sla je een shop tijdelijk over.
 
-> De shops in `config/shops.json` zijn nog **niet live geverifieerd**: de
-> ontwikkelomgeving waarin dit gebouwd is heeft geen internettoegang naar
-> externe sites. Na de eerste deploy laat `/api/sources` per shop zien of het
-> werkt; shops die niets opleveren pas je aan met `listingPaths` of vervang je.
+### Status van de shops
+
+Gemeten via `/api/sources` op een echte deploy:
+
+| Shop | Via | Wagyu-producten |
+|---|---|---|
+| The Meatlovers | shopify | ~139 |
+| Inamood | woocommerce | ~19 |
+| Mister Wagyu | woocommerce | ~12 |
+| The Meat Boys | woocommerce | ~7 |
+| BBQuality | jsonld | ~4 |
+| Valk Slagerij | jsonld | ~3 |
+| Internetslagerij | woocommerce | in behandeling |
+| Slagerij De Leeuw | jsonld | in behandeling |
+| The Butchery | — | **uit**: HTTP 429 op elk endpoint |
+| Beef & Steak | — | **uit**: HTTP 429 op elk endpoint |
+
+The Butchery en Beef & Steak weren geautomatiseerd verkeer (429 op álle
+endpoints, ook op paden die niet bestaan). Ze staan met `"enabled": false` in de
+lijst als documentatie; zet ze op `true` als je toestemming hebt geregeld.
 
 ## Ontwikkelen
 

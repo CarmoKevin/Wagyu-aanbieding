@@ -12,6 +12,8 @@ export type ShopConfig = {
   enabled?: boolean;
   /** Verzendkosten indicatie (EUR), puur informatief in de UI. */
   shippingNote?: string;
+  /** Vrije notitie, bijvoorbeeld waarom een shop uit staat. */
+  note?: string;
 };
 
 /** Ruw product zoals een adapter het uit een webshop haalt, nog niet verrijkt. */

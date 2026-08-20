@@ -127,3 +127,50 @@ describe("env-parsing", () => {
     expect(envNumber("TEST_TIMEOUT", 12_000, { min: 1_000 })).toBe(12_000);
   });
 });
+
+describe("rankProductLinks", () => {
+  it("zet productpagina's voorop en gooit ruis weg", async () => {
+    const { rankProductLinks } = await import("@/lib/adapters/jsonld");
+
+    const gerangschikt = rankProductLinks([
+      "https://shop.nl/faq/wagyu/",
+      "https://shop.nl/wagyu-vlees/page/2/",
+      "https://shop.nl/iets-met-wagyu",
+      "https://shop.nl/product/wagyu-ribeye-a5/",
+      "https://shop.nl/japanse-wagyu-entrecote-grade-4.html",
+    ]);
+
+    // FAQ- en paginering-links kosten alleen tijd: weg ermee.
+    expect(gerangschikt).not.toContain("https://shop.nl/faq/wagyu/");
+    expect(gerangschikt).not.toContain("https://shop.nl/wagyu-vlees/page/2/");
+
+    // /product/ en .html zien er als productpagina uit en gaan voorop.
+    expect(gerangschikt.slice(0, 2)).toEqual(
+      expect.arrayContaining([
+        "https://shop.nl/product/wagyu-ribeye-a5/",
+        "https://shop.nl/japanse-wagyu-entrecote-grade-4.html",
+      ]),
+    );
+    // Onbekende vorm mag blijven, maar achteraan.
+    expect(gerangschikt.at(-1)).toBe("https://shop.nl/iets-met-wagyu");
+  });
+});
+
+describe("retryAfterMs", () => {
+  it("wacht kort als de shop geen voorkeur geeft", async () => {
+    const { retryAfterMs } = await import("@/lib/http");
+    expect(retryAfterMs(null)).toBe(500);
+  });
+
+  it("volgt een redelijke Retry-After", async () => {
+    const { retryAfterMs } = await import("@/lib/http");
+    expect(retryAfterMs("2")).toBe(2_000);
+    expect(retryAfterMs("0")).toBe(250);
+  });
+
+  it("geeft het op als de shop lang wil wachten of onzin stuurt", async () => {
+    const { retryAfterMs } = await import("@/lib/http");
+    expect(retryAfterMs("120")).toBeUndefined();
+    expect(retryAfterMs("Wed, 21 Oct 2026 07:28:00 GMT")).toBeUndefined();
+  });
+});

@@ -21,6 +21,13 @@ export class HttpError extends Error {
   }
 }
 
+/** De shop weert geautomatiseerd verkeer of vraagt om rustiger aan te doen. */
+export class RateLimitedError extends Error {
+  constructor(readonly url: string) {
+    super(`HTTP 429 (shop weert geautomatiseerd verkeer of limiteert) voor ${url}`);
+  }
+}
+
 export class TimeoutError extends Error {
   constructor(
     readonly url: string,
@@ -61,26 +68,57 @@ async function request<T>(
   const timer = setTimeout(() => controller.abort(), ms);
 
   try {
-    const res = await fetch(url, {
-      redirect: "follow",
-      ...init,
-      signal: controller.signal,
-      headers: {
-        "user-agent": userAgent(),
-        "accept-language": "nl-NL,nl;q=0.9,en;q=0.8",
-        ...(init.headers ?? {}),
-      },
-    });
+    let res = await send(url, init, controller.signal);
+
+    // 429 = te snel of niet welkom. Eén keer netjes wachten en opnieuw
+    // proberen; blijft het 429, dan laten we deze shop met rust.
+    if (res.status === 429) {
+      const wait = retryAfterMs(res.headers.get("retry-after"));
+      if (wait === undefined) throw new RateLimitedError(url);
+      await sleep(wait);
+      res = await send(url, init, controller.signal);
+      if (res.status === 429) throw new RateLimitedError(url);
+    }
+
     if (!res.ok) throw new HttpError(res.status, url);
     return await read(res);
   } catch (err) {
     // Een afgebroken request zegt zelf niet waarom; dat maken we expliciet.
     if (controller.signal.aborted) throw new TimeoutError(url, ms);
-    if (err instanceof HttpError) throw err;
+    if (err instanceof HttpError || err instanceof RateLimitedError) throw err;
     throw new Error(`${err instanceof Error ? err.message : String(err)} (${url})`);
   } finally {
     clearTimeout(timer);
   }
+}
+
+function send(url: string, init: RequestInit, signal: AbortSignal): Promise<Response> {
+  return fetch(url, {
+    redirect: "follow",
+    ...init,
+    signal,
+    headers: {
+      "user-agent": userAgent(),
+      "accept-language": "nl-NL,nl;q=0.9,en;q=0.8",
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+/**
+ * Hoe lang de shop ons wil laten wachten. Vraagt hij om meer dan een paar
+ * seconden, dan is opnieuw proberen zinloos binnen deze scan.
+ */
+export function retryAfterMs(header: string | null, maxWaitMs = 3_000): number | undefined {
+  if (header === null) return 500; // geen voorkeur opgegeven: korte adempauze
+  const seconds = Number(header.trim());
+  if (!Number.isFinite(seconds) || seconds < 0) return undefined;
+  const ms = seconds * 1_000;
+  return ms <= maxWaitMs ? Math.max(ms, 250) : undefined;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Voert taken uit met een maximum aan gelijktijdige requests. */
