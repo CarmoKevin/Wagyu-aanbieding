@@ -1,6 +1,8 @@
 import { isExpired } from "@/lib/adapters";
 import { absoluteUrl, fetchText, mapLimit } from "@/lib/http";
 import { isAllowed } from "@/lib/robots";
+import { productFromMeta } from "@/lib/adapters/meta";
+import { sitemapWagyuLinks } from "@/lib/adapters/sitemap";
 import { isWagyu } from "@/lib/parse/classify";
 import type { RawProduct, ShopConfig } from "@/lib/types";
 
@@ -39,8 +41,20 @@ export async function fetchJsonLd(
     }
   }
 
-  // Listings zonder prijs in de JSON-LD: productpagina's zelf ophalen. Eerst de
-  // links die er als productpagina uitzien, want elke fetch kost tijd.
+  // Leveren de categoriepagina's weinig op, dan is de kans groot dat de shop
+  // zijn producten met JavaScript inlaadt. De sitemap kent ze wel.
+  if (found.size < maxProductPages && !isExpired(deadline)) {
+    try {
+      for (const link of await sitemapWagyuLinks(new URL(shop.url).origin, deadline)) {
+        candidateLinks.add(link);
+      }
+    } catch {
+      // Geen sitemap: dan blijven we bij de links van de categoriepagina.
+    }
+  }
+
+  // Productpagina's zelf ophalen. Eerst de links die er als productpagina
+  // uitzien, want elke fetch kost tijd.
   const toVisit = rankProductLinks(
     [...candidateLinks].filter((link) => !found.has(link) && isWagyu(safeDecode(link))),
   ).slice(0, maxProductPages);
@@ -69,6 +83,13 @@ export function productsFromHtml(html: string, pageUrl: string, shop: ShopConfig
       const raw = toRawProduct(product, pageUrl, shop);
       if (raw) out.push(raw);
     }
+  }
+
+  // Geen bruikbare JSON-LD (of wel data, maar zonder prijs): dan de
+  // OpenGraph-tags proberen.
+  if (out.length === 0) {
+    const uitMeta = productFromMeta(html, pageUrl, shop);
+    if (uitMeta) out.push(uitMeta);
   }
   return out;
 }
@@ -99,11 +120,13 @@ function flattenProducts(node: unknown, depth = 0): JsonLdProduct[] {
   const type = typeList(obj["@type"]);
   const out: JsonLdProduct[] = [];
 
-  if (type.includes("product")) out.push(obj);
-  if (obj["@graph"]) out.push(...flattenProducts(obj["@graph"], depth + 1));
-  if (obj.itemListElement) out.push(...flattenProducts(obj.itemListElement, depth + 1));
-  if (obj.item) out.push(...flattenProducts(obj.item, depth + 1));
-  if (obj.mainEntity) out.push(...flattenProducts(obj.mainEntity, depth + 1));
+  // ProductGroup is de variabele-productvorm van WooCommerce en Shopify: de
+  // groep draagt de naam, de losse maten zitten in hasVariant.
+  if (type.some((t) => t === "product" || t === "productgroup")) out.push(obj);
+
+  for (const key of ["@graph", "itemListElement", "item", "mainEntity", "hasVariant"]) {
+    if (obj[key]) out.push(...flattenProducts(obj[key], depth + 1));
+  }
   return out;
 }
 
@@ -118,7 +141,7 @@ function toRawProduct(product: JsonLdProduct, pageUrl: string, shop: ShopConfig)
   if (!name) return undefined;
 
   const offer = firstOffer(product.offers);
-  const price = asNumber(offer?.price ?? offer?.lowPrice);
+  const price = offerPrice(offer);
   if (!price) return undefined;
 
   const url = absoluteUrl(pageUrl, asString(product.url) ?? asString(offer?.url) ?? pageUrl);
@@ -139,6 +162,27 @@ function toRawProduct(product: JsonLdProduct, pageUrl: string, shop: ShopConfig)
   };
 }
 
+/**
+ * De prijs kan op drie plekken staan: los op de Offer, als lowPrice op een
+ * AggregateOffer, of verstopt in een priceSpecification.
+ */
+export function offerPrice(offer: Record<string, unknown> | undefined): number | undefined {
+  if (!offer) return undefined;
+
+  const direct = asNumber(offer.price) ?? asNumber(offer.lowPrice);
+  if (direct) return direct;
+
+  const spec = offer.priceSpecification;
+  if (spec && typeof spec === "object") {
+    const specs = Array.isArray(spec) ? spec : [spec];
+    for (const entry of specs) {
+      const value = asNumber((entry as Record<string, unknown>)?.price);
+      if (value) return value;
+    }
+  }
+  return undefined;
+}
+
 function firstOffer(offers: unknown): Record<string, unknown> | undefined {
   if (!offers) return undefined;
   if (Array.isArray(offers)) {
@@ -146,7 +190,8 @@ function firstOffer(offers: unknown): Record<string, unknown> | undefined {
     const parsed = offers
       .map((o) => (typeof o === "object" && o ? (o as Record<string, unknown>) : undefined))
       .filter((o): o is Record<string, unknown> => Boolean(o))
-      .sort((a, b) => (asNumber(a.price) ?? Infinity) - (asNumber(b.price) ?? Infinity));
+      .filter((o) => offerPrice(o) !== undefined)
+      .sort((a, b) => (offerPrice(a) ?? Infinity) - (offerPrice(b) ?? Infinity));
     return parsed[0];
   }
   if (typeof offers === "object") {

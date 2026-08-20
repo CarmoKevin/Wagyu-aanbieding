@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { productsFromHtml, jsonLdNodes, productLinks, rankProductLinks } from "@/lib/adapters/jsonld";
+import { metaTags } from "@/lib/adapters/meta";
 import { fetchRawText, probeEndpoints } from "@/lib/inspect";
 import { normalize } from "@/lib/normalize";
 import { isWagyu } from "@/lib/parse/classify";
@@ -73,6 +74,9 @@ export async function GET(request: Request) {
         isWagyu: isWagyu(deal.title, deal.variantTitle, deal.productType, deal.tags),
       };
     }),
+    openGraph: Object.fromEntries(
+      [...metaTags(html)].filter(([key]) => /^(og:|product:|price|availability)/.test(key)),
+    ),
     links: {
       wagyuKandidaten: links.length,
       naRangschikking: rankProductLinks(links).slice(0, 8),
