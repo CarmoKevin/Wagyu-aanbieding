@@ -26,22 +26,40 @@ type WooProduct = {
   };
 };
 
+/** De Store API zit op het versiepad, of op het oudere pad zonder versie. */
+const STORE_PADEN = ["/wp-json/wc/store/v1/products", "/wp-json/wc/store/products"];
+
 export async function fetchWooCommerce(
   shop: ShopConfig,
   deadline = Infinity,
   maxPages = 3,
 ): Promise<RawProduct[]> {
-  const found = await collect(shop, deadline, maxPages, true);
-  if (found.length > 0) return found;
+  let laatsteFout: unknown;
 
-  // Sommige shops vinden niets op `search=wagyu` — bijvoorbeeld omdat de
-  // zoekindex alleen op andere velden matcht. Dan halen we de catalogus op en
-  // filteren we zelf.
-  return collect(shop, deadline, maxPages + 2, false);
+  for (const pad of STORE_PADEN) {
+    if (isExpired(deadline)) break;
+    try {
+      const gezocht = await collect(shop, pad, deadline, maxPages, true);
+      if (gezocht.length > 0) return gezocht;
+
+      // Sommige shops vinden niets op `search=wagyu` — bijvoorbeeld omdat de
+      // zoekindex alleen op andere velden matcht. Dan halen we de catalogus op
+      // en filteren we zelf.
+      const alles = await collect(shop, pad, deadline, maxPages + 2, false);
+      if (alles.length > 0) return alles;
+    } catch (err) {
+      // 404 op dit pad: het andere pad mag het nog proberen.
+      laatsteFout = err;
+    }
+  }
+
+  if (laatsteFout) throw laatsteFout;
+  return [];
 }
 
 async function collect(
   shop: ShopConfig,
+  pad: string,
   deadline: number,
   maxPages: number,
   useSearch: boolean,
@@ -51,7 +69,7 @@ async function collect(
   for (let page = 1; page <= maxPages; page++) {
     if (isExpired(deadline)) break;
     const query = useSearch ? "search=wagyu&" : "";
-    const url = `${shop.url}/wp-json/wc/store/v1/products?${query}per_page=100&page=${page}`;
+    const url = `${shop.url}${pad}?${query}per_page=100&page=${page}`;
     if (!(await isAllowed(url))) break;
 
     const data = await fetchJson<WooProduct[]>(url);

@@ -33,7 +33,13 @@ beforeAll(async () => {
       return res.end();
     }
 
+    // Zoals een shop waar alleen het oudere pad bestaat.
     if (url.pathname === "/wp-json/wc/store/v1/products") {
+      res.writeHead(404, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ code: "rest_no_route" }));
+    }
+
+    if (url.pathname === "/wp-json/wc/store/products") {
       const page = Number(url.searchParams.get("page") ?? 1);
       // Zoals Internetslagerij: search=wagyu levert niets op.
       if (url.searchParams.has("search")) return json([]);
@@ -72,7 +78,7 @@ afterAll(async () => {
 });
 
 describe("WooCommerce zonder bruikbare zoekfunctie", () => {
-  it("valt terug op de hele catalogus en zeeft zelf op wagyu", async () => {
+  it("vindt de Store API ook op het pad zonder versienummer, en zeeft zelf op wagyu", async () => {
     const shop: ShopConfig = { id: "w", name: "Woo", url: base, adapter: "woocommerce" };
     const producten = await fetchWooCommerce(shop);
 

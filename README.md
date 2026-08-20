@@ -73,6 +73,7 @@ npm run dev        # lokaal op http://localhost:3000
 | `/api/deals?minKorting=20&maxPerKilo=150&herkomst=japans&limit=25` | dezelfde data als JSON |
 | `/api/sources` | per shop: bereikbaar of niet, welke adapter, hoeveel producten — begin hier bij problemen |
 | `/api/detect?url=https://voorbeeld.nl` | test of een nieuwe shop uit te lezen is |
+| `/api/inspect?url=https://voorbeeld.nl/product/iets/` | rontgenfoto van een pagina: welke product-API's antwoorden, welke schema.org-data erin staat, en wat de parser eruit haalt |
 | `/api/agent` | laat Claude met websearch nieuwe NL wagyu-shops voorstellen (alleen met API-key) |
 | `/api/cron/refresh` | wat de dagelijkse cron aanroept |
 
@@ -86,6 +87,14 @@ Werkt dat, zet hem dan in `config/shops.json`:
 
 ```json
 { "id": "nieuweshop", "name": "Nieuwe Shop", "url": "https://nieuweshop.nl", "adapter": "auto" }
+```
+
+Levert een shop niets op, kijk dan met `/api/inspect` naar een productpagina van
+die shop. Dat laat zien of het aan de API ligt, aan ontbrekende schema.org-data,
+of aan de parser:
+
+```bash
+curl "https://<jouw-app>.vercel.app/api/inspect?url=https://shop.nl/product/wagyu-short-ribs/"
 ```
 
 Levert `detect` niets op, dan heeft de shop geen product-API. Geef dan
